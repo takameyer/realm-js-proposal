@@ -42,6 +42,8 @@ export class TodoItem extends Realm.Object {
         this.done = !this.done
     }
 }
+
+export const TodoRealm = createRealmProvider({schemas=[TodoItem, TodoList]})
 ```
 
 ## Project Setup
@@ -50,16 +52,13 @@ Setting up realm should be easy as wrapping the application with a provider.  Th
 
 ```typescript
 import { RealmProvider } from "realm"
-import { TodoItem, TodoList } from "./models"
+import { TodoItem, TodoList, TodoRealm } from "./models"
   
 export const Main = () => {
     return (
-        <RealmProvider 
-            schema=[TodoItem, TodoList]
-            path="something.realm"
-        >
+        <TodoRealm.Provider>
               <App/>
-        </RealmProvider>
+        </TodoRealm.Provider>
     )
 }
 ```
@@ -70,7 +69,7 @@ export const Main = () => {
 ```tsx
 const TodoListView = (listIndex: ObjectId) => {
     // Get object by primary key
-    const todoList = useObject(TodoList, listIndex)
+    const todoList = TodoRealm.useObject(TodoList, listIndex)
 
     if(!todoList){
         return null;
@@ -112,7 +111,7 @@ const TodoListView = (item: TodoItem) => {
 ```tsx
 const TodoListView = (listIndex: ObjectId) => {
     // Return all the lists in the database
-    const todoLists = useQuery(TodoList, {sort: "name ASC", filter: "name != main"})
+    const todoLists = TodoRealm.useQuery(TodoList, {sort: "name ASC", filter: "name != main"})
 
     return (
         <>
@@ -126,7 +125,7 @@ const TodoListView = (listIndex: ObjectId) => {
 
 ```tsx
 const DraftTodoList = () => {
-    const createTodoList = useCreator(TodoListModel)
+    const createTodoList = TodoRealm.useCreator(TodoListModel)
 
     const [draftTodoList, setDraftTodoList] = useState<TodoList>((name: 'Placeholder Text'))
 
@@ -146,9 +145,9 @@ const DraftTodoList = () => {
 ### Destroy
 ```tsx
 const DraftTodoList = () => {
-    const destroyObject = useDestroyer()
+    const destroyObject = TodoRealm.useDestroyer()
 
-    const todoList = useObject(TodoList, listIndex)
+    const todoList = TodoRealm.useObject(TodoList, listIndex)
 
     return (
         <>
@@ -164,6 +163,34 @@ const DraftTodoList = () => {
 }
 ```
 
+### Write Transaction
+```tsx
+const DraftTodoList = () => {
+    const transaction = TodoRealm.useTransaction()
+
+    const [draftTodoList, setDraftTodoList] = useState<TodoList>((name: 'Placeholder Text'))
+
+    return (
+        <>
+            <TextInput
+            />
+            <Button 
+                title={"create"}
+                onPress={() => 
+                transaction((realm) => {
+                    realm.create(TodoList, draftTodoList)
+                })}
+            />
+        </>
+    )
+
+}
+```
+
 ### In emergency realm is always there
 
-`const realm = useRealm()`
+`const realm = TodoRealm.useRealm()`
+
+## TODO
+* handle multiple realms
+* option to define a write transaction (rollback on fail)
