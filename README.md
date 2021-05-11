@@ -13,7 +13,7 @@ import Realm, {ObjectId, List, Results} from 'realm';
 import {model, property, linkedTo} from '@realm/decorators';
 
 @model()
-export class TodoList extends Realm.Object {
+export class TodoList {
     @property({primary: true}) _id: ObjectId;
     @property() name: String;
     @property() items: List<TodoItemSchema>;
@@ -26,7 +26,7 @@ export class TodoList extends Realm.Object {
 }
 
 @model()
-export class TodoItem extends Realm.Object {
+export class TodoItem {
     @property({primary: true, type: 'objectId'}) _id: ObjectId;
     @property({type: 'string'}) description: String;
     @property({default: false}) done?: Boolean;
@@ -38,12 +38,16 @@ export class TodoItem extends Realm.Object {
         this.description = description;
     }
 
-    toggleDone(){
+
+    // The mutator decorator will automatically wrap this operation in a write transaction
+    @mutator toggleDone(){
         this.done = !this.done
+        this.dateDone = new Date()
     }
 }
 
-export const TodoRealm = createRealmProvider({schemas=[TodoItem, TodoList]})
+// Path will be required for multiple realms
+export const TodoRealm = createRealmProvider({schemas=[TodoItem, TodoList], path: "whatever.realm"})
 ```
 
 ## Project Setup
@@ -67,9 +71,9 @@ export const Main = () => {
 ## Realm Components
 
 ```tsx
-const TodoListView = (listIndex: ObjectId) => {
+const TodoListView = (listId: ObjectId) => {
     // Get object by primary key
-    const todoList = TodoRealm.useObject(TodoList, listIndex)
+    const todoList = TodoRealm.useObject(TodoList, listId)
 
     if(!todoList){
         return null;
@@ -111,7 +115,9 @@ const TodoListView = (item: TodoItem) => {
 ```tsx
 const TodoListView = (listIndex: ObjectId) => {
     // Return all the lists in the database
-    const todoLists = TodoRealm.useQuery(TodoList, {sort: "name ASC", filter: "name != main"})
+    const todoLists = TodoRealm.useQuery(
+        TodoList, {sort: "name ASC", filter: "name != main"}
+    )
 
     return (
         <>
@@ -163,23 +169,23 @@ const DraftTodoList = () => {
 }
 ```
 
-### Write Transaction
+### Update Transaction
 ```tsx
-const DraftTodoList = () => {
-    const transaction = TodoRealm.useTransaction()
-
-    const [draftTodoList, setDraftTodoList] = useState<TodoList>((name: 'Placeholder Text'))
+const DraftTodoList = (item:Realm.Result<TodoItem>) => {
+    // draft will be a copy of the realm result as a js object
+    const [draft, setDraft, commitDraft] = TodoRealm.useDraft(item)
 
     return (
         <>
             <TextInput
+                value={draft.name}
+                onTextChange={value => setDraft({...draft, name: value.name}) }
             />
             <Button 
                 title={"create"}
                 onPress={() => 
-                transaction((realm) => {
-                    realm.create(TodoList, draftTodoList)
-                })}
+                    commitDraft()
+                }
             />
         </>
     )
